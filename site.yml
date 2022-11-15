@@ -29,10 +29,8 @@
           - clickhouse-client-{{ clickhouse_version }}.rpm
           - clickhouse-server-{{ clickhouse_version }}.rpm
       notify: Start clickhouse service
-# Принудительное использование handlers для сарта сервиса clickhouse-server, иначе не получится создать БД
     - name: Flush handlers
       ansible.builtin.meta: flush_handlers
-# Задержка после рестарта сервера, что бы успел запустится
     - name: Delay 5 sec
       ansible.builtin.pause:
         seconds: 5
@@ -44,30 +42,27 @@
 
 - name: Install Vector
   hosts: vector
-# handlers для старта/рестарта сервиса Vector
   handlers:
-    - name: Start Vector service
-      become: true
-      ansible.builtin.service:
-        name: vector
-        state: restarted
+  - name: Start Vector service
+    become: true
+    ansible.builtin.service:
+      name: vector
+      state: restarted
 
   tasks:
-# Скачивание rpm пакета vector для установки
     - name: Get Vector distrib
       ansible.builtin.get_url:
         url: "https://packages.timber.io/vector/0.21.1/vector-0.21.1-1.{{ ansible_architecture }}.rpm"
         dest: "./vector-0.21.1-1.{{ ansible_architecture }}.rpm"
-        mode: 0755
-# Установка rpm пакета vector
+
     - name: Install Vector packages
       become: true
       ansible.builtin.yum:
         name: vector-0.21.1-1.{{ ansible_architecture }}.rpm
       notify: Start Vector service
-# Создание файла конфигурации для vector. Сама конфигурация не претендует на рабочую, но пример взят с офф.документации vector
+
     - name: Deploy config Vector
-      ansible.builtin.template:
+      template:
         src: vector.j2
         dest: /etc/vector/vector.toml
         mode: 0755
