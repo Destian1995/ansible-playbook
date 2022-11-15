@@ -1,5 +1,20 @@
 ---
+- name: Drop database Clickhouse
+  hosts: clickhouse
+  tags: [drop_clickhouse_database_logs, never]
+  tasks:
+    - name: Drop clickhouse database logs
+      ansible.builtin.command:
+        argv:
+          - clickhouse-client
+          - -q 
+          - drop database {{ clickhouse_database_name }};
+      register: drop_table
+      failed_when: drop_table.rc != 0 and drop_table.rc !=81 # db doesn't exist
+      changed_when: drop_table.rc == 0
+      
 - name: Install Clickhouse
+  tags: clickhouse
   hosts: clickhouse
   handlers:
     - name: Start clickhouse service
@@ -27,11 +42,33 @@
           - clickhouse-client-{{ clickhouse_version }}.rpm
           - clickhouse-server-{{ clickhouse_version }}.rpm
       notify: Start clickhouse service
+    - name: Enable remote connections to clickhouse server
+      become: true
+      ansible.builtin.lineinfile:
+        path: /etc/clickhouse-server/config.xml
+        regexp: <!-- <listen_host>::</listen_host> -->
+        line: <listen_host>::</listen_host>
+    - name: Flush handlers
+      meta: flush_handlers
     - name: Create database
-      ansible.builtin.command: "clickhouse-client -q 'create database logs;'"
+      tags: clickhouse_db
+      ansible.builtin.command: "clickhouse-client -q 'create database {{ clickhouse_database_name }};'"
       register: create_db
       failed_when: create_db.rc != 0 and create_db.rc !=82
       changed_when: create_db.rc == 0
+    - name: Create log table
+      tags: clickhouse_db
+      ansible.builtin.command:
+        argv:
+          - clickhouse-client
+          - --database
+          - "{{ clickhouse_database_name }}"
+          - -q 
+          - |
+            {{ clickhouse_create_table }}
+      register: create_table
+      failed_when: create_table.rc != 0 and create_table.rc !=57 # table already exists
+      changed_when: create_table.rc == 0
 
 - name: Install Vector
   tags: vector
