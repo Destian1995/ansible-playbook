@@ -1,4 +1,4 @@
----
+--
 - name: Drop database Clickhouse
   hosts: clickhouse
   tags: [drop_clickhouse_database_logs, never]
